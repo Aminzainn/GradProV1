@@ -6,14 +6,12 @@ namespace GP.Models
     public class EventManagerContext : IdentityDbContext<ApplicationUser, ApplicationRole, string>
     {
         public EventManagerContext(DbContextOptions<EventManagerContext> options)
-            : base(options)
-        {
-        }
-        public DbSet<EventType> EventTypes { get; set; }
-        public DbSet<PlaceType> PlaceTypes { get; set; }
-        public DbSet<Place> Places { get; set; }
+            : base(options) { }
+
         public DbSet<Event> Events { get; set; }
         public DbSet<TicketType> TicketTypes { get; set; }
+        public DbSet<PlaceType> PlaceTypes { get; set; }
+        public DbSet<Place> Places { get; set; }
         public DbSet<Reservation> Reservations { get; set; }
         public DbSet<Ticket> Tickets { get; set; }
         public DbSet<EventAvailability> EventAvailabilities { get; set; }
@@ -23,9 +21,8 @@ namespace GP.Models
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
-            base.OnModelCreating(builder); 
+            base.OnModelCreating(builder);
 
-            // Configure your existing relationships
             builder.Entity<Reservation>()
                 .HasOne(r => r.BookedSlot)
                 .WithOne(ea => ea.Reservation)
@@ -34,16 +31,20 @@ namespace GP.Models
             builder.Entity<Payment>()
                 .HasOne(p => p.Reservation)
                 .WithOne(r => r.Payment)
-                .HasForeignKey<Reservation>(r => r.Id).
-                OnDelete(DeleteBehavior.Cascade);
+                .HasForeignKey<Reservation>(r => r.Id)
+                .OnDelete(DeleteBehavior.Cascade);
 
-
-            // Update foreign keys to use string (IdentityUser.Id)
             builder.Entity<Event>()
                 .HasOne(e => e.CreatedByUser)
                 .WithMany(u => u.OrganizedEvents)
                 .HasForeignKey(e => e.CreatedByUserId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<Place>()
+                .HasOne(p => p.CreatedByUser)
+                .WithMany()
+                .HasForeignKey(p => p.CreatedByUserId)
+                .OnDelete(DeleteBehavior.NoAction);
 
             builder.Entity<Reservation>()
                 .HasOne(r => r.User)
@@ -55,7 +56,13 @@ namespace GP.Models
                 .WithMany(u => u.Payments)
                 .HasForeignKey(p => p.UserId);
 
-            // Soft delete query filter
+            builder.Entity<TicketType>()
+                .HasOne(t => t.Event)
+                .WithMany(e => e.TicketTypes)
+                .HasForeignKey(t => t.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // 🔥 Soft Delete Filters
             builder.Entity<ApplicationUser>().HasQueryFilter(u => !u.IsDeleted);
             builder.Entity<Event>().HasQueryFilter(e => !e.IsDeleted);
             builder.Entity<EventAvailability>().HasQueryFilter(e => !e.Event.IsDeleted);
@@ -65,10 +72,10 @@ namespace GP.Models
             builder.Entity<Payment>().HasQueryFilter(p => !p.Reservation.Event.IsDeleted);
             builder.Entity<Ticket>().HasQueryFilter(t => !t.Reservation.Event.IsDeleted);
 
-            //decimal property 
+            // 🔢 Decimal Precision
             builder.Entity<Event>()
-       .Property(e => e.FixedPrice)
-       .HasPrecision(18, 2); 
+                .Property(e => e.FixedPrice)
+                .HasPrecision(18, 2);
 
             builder.Entity<Payment>()
                 .Property(p => p.Amount)
@@ -81,13 +88,13 @@ namespace GP.Models
             builder.Entity<TicketType>()
                 .Property(t => t.Price)
                 .HasPrecision(18, 2);
-            ///Payment
-            builder.Entity<Reservation>()
-       .HasOne(r => r.Payment)
-       .WithOne(p => p.Reservation)
-       .HasForeignKey<Payment>(p => p.ReservationId)
-       .OnDelete(DeleteBehavior.Restrict);
 
+            // ✅ Payment-Reservation relationship again (to avoid delete errors)
+            builder.Entity<Reservation>()
+                .HasOne(r => r.Payment)
+                .WithOne(p => p.Reservation)
+                .HasForeignKey<Payment>(p => p.ReservationId)
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }

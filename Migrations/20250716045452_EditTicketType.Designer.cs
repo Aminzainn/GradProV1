@@ -4,6 +4,7 @@ using GP.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace GP.Migrations
 {
     [DbContext(typeof(EventManagerContext))]
-    partial class EventManagerContextModelSnapshot : ModelSnapshot
+    [Migration("20250716045452_EditTicketType")]
+    partial class EditTicketType
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -145,6 +148,9 @@ namespace GP.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("CreatedByUserId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
@@ -152,21 +158,17 @@ namespace GP.Migrations
                     b.Property<DateTime>("Date")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
 
-                    b.Property<string>("EventType")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<int>("EventTypeId")
+                        .HasColumnType("int");
 
                     b.Property<decimal?>("FixedPrice")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<string>("ImageUrl")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("IsApproved")
+                    b.Property<bool>("IsAvailable")
                         .HasColumnType("bit");
 
                     b.Property<bool>("IsDeleted")
@@ -179,27 +181,17 @@ namespace GP.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Performers")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int?>("PlaceId")
+                    b.Property<int>("PlaceId")
                         .HasColumnType("int");
 
-                    b.Property<string>("PlaceName")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("StadiumName")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("TeamA")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("TeamB")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("EventTypeId");
 
                     b.HasIndex("PlaceId");
 
@@ -258,6 +250,23 @@ namespace GP.Migrations
                     b.HasIndex("ParticipantTypeId");
 
                     b.ToTable("EventParticipants");
+                });
+
+            modelBuilder.Entity("GP.Models.EventType", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("EventTypes");
                 });
 
             modelBuilder.Entity("GP.Models.ParticipantType", b =>
@@ -333,9 +342,6 @@ namespace GP.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("CreatedByUserId")
-                        .HasColumnType("nvarchar(450)");
-
                     b.Property<string>("ImageUrl")
                         .HasColumnType("nvarchar(max)");
 
@@ -353,8 +359,6 @@ namespace GP.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("CreatedByUserId");
 
                     b.HasIndex("PlaceTypeId");
 
@@ -445,11 +449,45 @@ namespace GP.Migrations
                     b.Property<int>("ReservationId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("TicketTypeId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ReservationId");
 
+                    b.HasIndex("TicketTypeId");
+
                     b.ToTable("Tickets");
+                });
+
+            modelBuilder.Entity("GP.Models.TicketType", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("EventId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("Price")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventId");
+
+                    b.ToTable("TicketTypes");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -558,38 +596,6 @@ namespace GP.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
-            modelBuilder.Entity("TicketType", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("EventId")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<decimal>("Price")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<int>("Quantity")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EventId");
-
-                    b.ToTable("TicketTypes");
-                });
-
             modelBuilder.Entity("GP.Models.Event", b =>
                 {
                     b.HasOne("GP.Models.ApplicationUser", "CreatedByUser")
@@ -598,17 +604,29 @@ namespace GP.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("GP.Models.Place", null)
+                    b.HasOne("GP.Models.EventType", "EventType")
                         .WithMany("Events")
-                        .HasForeignKey("PlaceId");
+                        .HasForeignKey("EventTypeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GP.Models.Place", "Place")
+                        .WithMany("Events")
+                        .HasForeignKey("PlaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("CreatedByUser");
+
+                    b.Navigation("EventType");
+
+                    b.Navigation("Place");
                 });
 
             modelBuilder.Entity("GP.Models.EventAvailability", b =>
                 {
                     b.HasOne("GP.Models.Event", "Event")
-                        .WithMany()
+                        .WithMany("AvailableSlots")
                         .HasForeignKey("EventId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -627,7 +645,7 @@ namespace GP.Migrations
             modelBuilder.Entity("GP.Models.EventParticipant", b =>
                 {
                     b.HasOne("GP.Models.Event", "Event")
-                        .WithMany()
+                        .WithMany("Participants")
                         .HasForeignKey("EventId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -664,18 +682,11 @@ namespace GP.Migrations
 
             modelBuilder.Entity("GP.Models.Place", b =>
                 {
-                    b.HasOne("GP.Models.ApplicationUser", "CreatedByUser")
-                        .WithMany()
-                        .HasForeignKey("CreatedByUserId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
                     b.HasOne("GP.Models.PlaceType", "PlaceType")
                         .WithMany("Places")
                         .HasForeignKey("PlaceTypeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("CreatedByUser");
 
                     b.Navigation("PlaceType");
                 });
@@ -683,11 +694,11 @@ namespace GP.Migrations
             modelBuilder.Entity("GP.Models.Reservation", b =>
                 {
                     b.HasOne("GP.Models.Event", "Event")
-                        .WithMany()
+                        .WithMany("Reservations")
                         .HasForeignKey("EventId");
 
-                    b.HasOne("TicketType", "TicketType")
-                        .WithMany()
+                    b.HasOne("GP.Models.TicketType", "TicketType")
+                        .WithMany("Reservations")
                         .HasForeignKey("TicketTypeId");
 
                     b.HasOne("GP.Models.ApplicationUser", "User")
@@ -711,7 +722,22 @@ namespace GP.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("GP.Models.TicketType", null)
+                        .WithMany("Tickets")
+                        .HasForeignKey("TicketTypeId");
+
                     b.Navigation("Reservation");
+                });
+
+            modelBuilder.Entity("GP.Models.TicketType", b =>
+                {
+                    b.HasOne("GP.Models.Event", "Event")
+                        .WithMany("TicketTypes")
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Event");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -765,17 +791,6 @@ namespace GP.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("TicketType", b =>
-                {
-                    b.HasOne("GP.Models.Event", "Event")
-                        .WithMany("TicketTypes")
-                        .HasForeignKey("EventId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Event");
-                });
-
             modelBuilder.Entity("GP.Models.ApplicationUser", b =>
                 {
                     b.Navigation("OrganizedEvents");
@@ -787,7 +802,18 @@ namespace GP.Migrations
 
             modelBuilder.Entity("GP.Models.Event", b =>
                 {
+                    b.Navigation("AvailableSlots");
+
+                    b.Navigation("Participants");
+
+                    b.Navigation("Reservations");
+
                     b.Navigation("TicketTypes");
+                });
+
+            modelBuilder.Entity("GP.Models.EventType", b =>
+                {
+                    b.Navigation("Events");
                 });
 
             modelBuilder.Entity("GP.Models.ParticipantType", b =>
@@ -812,6 +838,13 @@ namespace GP.Migrations
 
                     b.Navigation("Payment")
                         .IsRequired();
+
+                    b.Navigation("Tickets");
+                });
+
+            modelBuilder.Entity("GP.Models.TicketType", b =>
+                {
+                    b.Navigation("Reservations");
 
                     b.Navigation("Tickets");
                 });
