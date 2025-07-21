@@ -157,12 +157,13 @@ namespace GP.Controllers
             var userId = User.Claims.FirstOrDefault(c => c.Type == "id")?.Value;
             if (userId == null) return Unauthorized();
 
-            var ev = await _context.Events.Include(e => e.TicketTypes)
+            var ev = await _context.Events
+                .Include(e => e.TicketTypes)
                 .FirstOrDefaultAsync(e => e.Id == id && e.CreatedByUserId == userId && !e.IsDeleted);
 
             if (ev == null) return NotFound();
 
-            // Update properties
+            // Update event info
             ev.Name = dto.Name ?? ev.Name;
             ev.EventType = dto.EventType ?? ev.EventType;
             ev.Date = dto.Date != DateTime.MinValue ? dto.Date : ev.Date;
@@ -173,7 +174,7 @@ namespace GP.Controllers
             ev.Performers = dto.Performers != null ? string.Join(", ", dto.Performers) : ev.Performers;
             ev.PlaceName = dto.PlaceName ?? ev.PlaceName;
 
-            // لو الصورة اتغيرت
+            // Update Image
             if (dto.Image != null)
             {
                 string extension = Path.GetExtension(dto.Image.FileName);
@@ -186,16 +187,29 @@ namespace GP.Controllers
                 ev.ImageUrl = $"/images/events/{fileName}";
             }
 
-            // تحديث التذاكر
+            // Update TicketTypes: add to quantity if exists, else add new
             if (dto.TicketTypes != null && dto.TicketTypes.Count > 0)
             {
-                _context.TicketTypes.RemoveRange(ev.TicketTypes);
-                ev.TicketTypes = dto.TicketTypes.Select(t => new TicketType
+                foreach (var t in dto.TicketTypes)
                 {
-                    Name = t.Name,
-                    Price = t.Price,
-                    Quantity = t.Quantity
-                }).ToList();
+                    var existingTicket = ev.TicketTypes.FirstOrDefault(x => x.Name.ToLower() == t.Name.ToLower());
+                    if (existingTicket != null)
+                    {
+                        // زيادة الكمية
+                        existingTicket.Quantity += t.Quantity;
+                        existingTicket.Price = t.Price; // إذا أردت تعديل السعر أيضًا
+                    }
+                    else
+                    {
+                        // إضافة نوع تذكرة جديد
+                        ev.TicketTypes.Add(new TicketType
+                        {
+                            Name = t.Name,
+                            Price = t.Price,
+                            Quantity = t.Quantity
+                        });
+                    }
+                }
                 ev.IsTicketed = true;
             }
 
