@@ -33,5 +33,7 @@ namespace GP.Models.DTO
 
         // ✅ Other
         public string? PlaceName { get; set; }
+        public bool IsApproved { get; set; }
+
     }
 }
