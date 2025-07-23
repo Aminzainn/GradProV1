@@ -4,6 +4,7 @@ using GP.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace GP.Migrations
 {
     [DbContext(typeof(EventManagerContext))]
-    partial class EventManagerContextModelSnapshot : ModelSnapshot
+    [Migration("20250723095755_correctdatabase")]
+    partial class correctdatabase
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -145,15 +148,6 @@ namespace GP.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("AdminNote")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("CivilProtectionApprovalBackUrl")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("CivilProtectionApprovalFrontUrl")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("CreatedByUserId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
@@ -162,9 +156,6 @@ namespace GP.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("EventInsuranceUrl")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("EventType")
@@ -200,19 +191,7 @@ namespace GP.Migrations
                     b.Property<string>("PlaceName")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("PublicLicenseBackUrl")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("PublicLicenseFrontUrl")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("SecurityClearanceUrl")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("StadiumName")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("StripePaymentLink")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("TeamA")

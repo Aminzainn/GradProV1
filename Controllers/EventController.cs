@@ -23,7 +23,7 @@ namespace GP.Controllers
             _env = env;
         }
 
-        // ✅ Add Event with Image
+        // ✅ Add Event with Image and Documents
         [HttpPost("add-event")]
         [Authorize(Roles = "Service Provider")]
         public async Task<IActionResult> AddEventWithImage([FromForm] AddEventWithImageDto dto)
@@ -33,14 +33,24 @@ namespace GP.Controllers
             if (dto.Image == null)
                 return BadRequest("Image is required");
 
-            string extension = Path.GetExtension(dto.Image.FileName);
-            string fileName = $"{Guid.NewGuid()}_{Path.GetFileNameWithoutExtension(dto.Image.FileName).Replace(" ", "_")}{extension}";
+            string imagesPath = Path.Combine(_env.WebRootPath, "images", "events");
+            Directory.CreateDirectory(imagesPath);
 
-            string filePath = Path.Combine(_env.WebRootPath, "images", "events", fileName);
-            using (var stream = new FileStream(filePath, FileMode.Create))
+            // Poster image
+            string posterFileName = $"{Guid.NewGuid()}_{Path.GetFileName(dto.Image.FileName)}";
+            string posterPath = Path.Combine(imagesPath, posterFileName);
+            using (var stream = new FileStream(posterPath, FileMode.Create))
             {
                 await dto.Image.CopyToAsync(stream);
             }
+
+            // Other docs
+            string? securityClearanceUrl = await SaveDocAsync(dto.SecurityClearance, imagesPath, "security");
+            string? publicLicenseFrontUrl = await SaveDocAsync(dto.PublicLicenseFront, imagesPath, "public_front");
+            string? publicLicenseBackUrl = await SaveDocAsync(dto.PublicLicenseBack, imagesPath, "public_back");
+            string? civilProtectionApprovalFrontUrl = await SaveDocAsync(dto.CivilProtectionApprovalFront, imagesPath, "civprot_front");
+            string? civilProtectionApprovalBackUrl = await SaveDocAsync(dto.CivilProtectionApprovalBack, imagesPath, "civprot_back");
+            string? eventInsuranceUrl = await SaveDocAsync(dto.EventInsurance, imagesPath, "insurance");
 
             var newEvent = new Event
             {
@@ -53,11 +63,17 @@ namespace GP.Controllers
                 PlaceName = dto.PlaceName,
                 Date = dto.Date,
                 Description = dto.Description,
-                ImageUrl = $"/images/events/{fileName}",
+                ImageUrl = $"/images/events/{posterFileName}",
                 CreatedByUserId = userId,
                 IsTicketed = dto.TicketTypes != null && dto.TicketTypes.Count > 0,
                 IsApproved = false,
                 IsDeleted = false,
+                SecurityClearanceUrl = securityClearanceUrl,
+                PublicLicenseFrontUrl = publicLicenseFrontUrl,
+                PublicLicenseBackUrl = publicLicenseBackUrl,
+                CivilProtectionApprovalFrontUrl = civilProtectionApprovalFrontUrl,
+                CivilProtectionApprovalBackUrl = civilProtectionApprovalBackUrl,
+                EventInsuranceUrl = eventInsuranceUrl,
                 TicketTypes = dto.TicketTypes?.Select(t => new TicketType
                 {
                     Name = t.Name,
@@ -70,6 +86,19 @@ namespace GP.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { message = "Event created successfully", eventId = newEvent.Id });
+        }
+
+        // Helper to save docs
+        private async Task<string?> SaveDocAsync(IFormFile? file, string folder, string label)
+        {
+            if (file == null) return null;
+            string docFileName = $"{Guid.NewGuid()}_{label}_{Path.GetFileName(file.FileName)}";
+            string docPath = Path.Combine(folder, docFileName);
+            using (var stream = new FileStream(docPath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+            return $"/images/events/{docFileName}";
         }
 
         // ✅ Get Events Created by This Service Provider
@@ -98,6 +127,12 @@ namespace GP.Controllers
                     PlaceName = e.PlaceName,
                     IsApproved = e.IsApproved,
                     IsTicketed = e.IsTicketed,
+                    SecurityClearanceUrl = e.SecurityClearanceUrl,
+                    PublicLicenseFrontUrl = e.PublicLicenseFrontUrl,
+                    PublicLicenseBackUrl = e.PublicLicenseBackUrl,
+                    CivilProtectionApprovalFrontUrl = e.CivilProtectionApprovalFrontUrl,
+                    CivilProtectionApprovalBackUrl = e.CivilProtectionApprovalBackUrl,
+                    EventInsuranceUrl = e.EventInsuranceUrl,
                     TicketTypes = e.TicketTypes.Select(t => new TicketTypeDto
                     {
                         Name = t.Name,
@@ -136,6 +171,12 @@ namespace GP.Controllers
                     PlaceName = e.PlaceName,
                     IsApproved = e.IsApproved,
                     IsTicketed = e.IsTicketed,
+                    SecurityClearanceUrl = e.SecurityClearanceUrl,
+                    PublicLicenseFrontUrl = e.PublicLicenseFrontUrl,
+                    PublicLicenseBackUrl = e.PublicLicenseBackUrl,
+                    CivilProtectionApprovalFrontUrl = e.CivilProtectionApprovalFrontUrl,
+                    CivilProtectionApprovalBackUrl = e.CivilProtectionApprovalBackUrl,
+                    EventInsuranceUrl = e.EventInsuranceUrl,
                     TicketTypes = e.TicketTypes.Select(t => new TicketTypeDto
                     {
                         Name = t.Name,
@@ -149,7 +190,7 @@ namespace GP.Controllers
             return Ok(ev);
         }
 
-        // ✅ Edit Event (by Service Provider) - Will set IsApproved = false after edit
+        // ✅ Edit Event (add new or increase existing ticket types and docs)
         [HttpPut("edit-event/{id}")]
         [Authorize(Roles = "Service Provider")]
         public async Task<IActionResult> EditEvent(int id, [FromForm] AddEventWithImageDto dto)
@@ -163,6 +204,9 @@ namespace GP.Controllers
 
             if (ev == null) return NotFound();
 
+            string imagesPath = Path.Combine(_env.WebRootPath, "images", "events");
+            Directory.CreateDirectory(imagesPath);
+
             // Update event info
             ev.Name = dto.Name ?? ev.Name;
             ev.EventType = dto.EventType ?? ev.EventType;
@@ -174,20 +218,32 @@ namespace GP.Controllers
             ev.Performers = dto.Performers != null ? string.Join(", ", dto.Performers) : ev.Performers;
             ev.PlaceName = dto.PlaceName ?? ev.PlaceName;
 
-            // Update Image
+            // Update images if uploaded
             if (dto.Image != null)
             {
-                string extension = Path.GetExtension(dto.Image.FileName);
-                string fileName = $"{Guid.NewGuid()}_{Path.GetFileNameWithoutExtension(dto.Image.FileName).Replace(" ", "_")}{extension}";
-                string filePath = Path.Combine(_env.WebRootPath, "images", "events", fileName);
-                using (var stream = new FileStream(filePath, FileMode.Create))
+                string posterFileName = $"{Guid.NewGuid()}_{Path.GetFileName(dto.Image.FileName)}";
+                string posterPath = Path.Combine(imagesPath, posterFileName);
+                using (var stream = new FileStream(posterPath, FileMode.Create))
                 {
                     await dto.Image.CopyToAsync(stream);
                 }
-                ev.ImageUrl = $"/images/events/{fileName}";
+                ev.ImageUrl = $"/images/events/{posterFileName}";
             }
 
-            // Update TicketTypes: add to quantity if exists, else add new
+            if (dto.SecurityClearance != null)
+                ev.SecurityClearanceUrl = await SaveDocAsync(dto.SecurityClearance, imagesPath, "security");
+            if (dto.PublicLicenseFront != null)
+                ev.PublicLicenseFrontUrl = await SaveDocAsync(dto.PublicLicenseFront, imagesPath, "public_front");
+            if (dto.PublicLicenseBack != null)
+                ev.PublicLicenseBackUrl = await SaveDocAsync(dto.PublicLicenseBack, imagesPath, "public_back");
+            if (dto.CivilProtectionApprovalFront != null)
+                ev.CivilProtectionApprovalFrontUrl = await SaveDocAsync(dto.CivilProtectionApprovalFront, imagesPath, "civprot_front");
+            if (dto.CivilProtectionApprovalBack != null)
+                ev.CivilProtectionApprovalBackUrl = await SaveDocAsync(dto.CivilProtectionApprovalBack, imagesPath, "civprot_back");
+            if (dto.EventInsurance != null)
+                ev.EventInsuranceUrl = await SaveDocAsync(dto.EventInsurance, imagesPath, "insurance");
+
+            // Add to quantity if exists, else add new ticket type
             if (dto.TicketTypes != null && dto.TicketTypes.Count > 0)
             {
                 foreach (var t in dto.TicketTypes)
@@ -195,13 +251,11 @@ namespace GP.Controllers
                     var existingTicket = ev.TicketTypes.FirstOrDefault(x => x.Name.ToLower() == t.Name.ToLower());
                     if (existingTicket != null)
                     {
-                        // زيادة الكمية
                         existingTicket.Quantity += t.Quantity;
-                        existingTicket.Price = t.Price; // إذا أردت تعديل السعر أيضًا
+                        existingTicket.Price = t.Price;
                     }
                     else
                     {
-                        // إضافة نوع تذكرة جديد
                         ev.TicketTypes.Add(new TicketType
                         {
                             Name = t.Name,
@@ -213,7 +267,7 @@ namespace GP.Controllers
                 ev.IsTicketed = true;
             }
 
-            // أي تعديل يرجع الحدث لـ Pending
+            // Set event back to pending after edit
             ev.IsApproved = false;
 
             await _context.SaveChangesAsync();
@@ -236,6 +290,23 @@ namespace GP.Controllers
             ev.IsDeleted = true;
             await _context.SaveChangesAsync();
             return Ok(new { message = "Event deleted." });
+        }
+
+        // 🎟️ User purchases ticket, decrements ticket type quantity
+        [HttpPost("buy-ticket/{ticketTypeId}")]
+        [Authorize(Roles = "User")]
+        public async Task<IActionResult> BuyTicket(int ticketTypeId, [FromBody] int quantity)
+        {
+            var ticketType = await _context.TicketTypes.FindAsync(ticketTypeId);
+            if (ticketType == null) return NotFound("Ticket type not found.");
+            if (ticketType.Quantity < quantity) return BadRequest("Not enough tickets available.");
+
+            ticketType.Quantity -= quantity;
+            await _context.SaveChangesAsync();
+
+            // TODO: Add reservation, payment, etc.
+
+            return Ok(new { message = "Ticket purchased successfully." });
         }
     }
 }

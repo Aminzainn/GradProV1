@@ -9,6 +9,7 @@ namespace GP.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = "Service Provider")]
     public class PlaceController : ControllerBase
     {
         private readonly EventManagerContext _context;
@@ -18,16 +19,14 @@ namespace GP.Controllers
             _context = context;
         }
 
-        // ✅ Get only places added by the current Service Provider
+        // ✅ Get places added by the Service Provider
         [HttpGet("my-places")]
-        [Authorize(Roles = "Service Provider")]
         public async Task<IActionResult> GetMyPlaces()
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
             var places = await _context.Places
-                .Include(p => p.PlaceType)
-                .Where(p => p.CreatedByUserId == userId)
+                .Where(p => p.CreatedByUserId == userId && !p.IsDeleted)
                 .Select(p => new MyPlaceDto
                 {
                     Id = p.Id,
@@ -42,9 +41,8 @@ namespace GP.Controllers
             return Ok(places);
         }
 
-        // ✅ Add Place (linked to Service Provider)
+        // ✅ Add a new place
         [HttpPost("add")]
-        [Authorize(Roles = "Service Provider")]
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> AddPlace([FromForm] AddPlaceDto model)
         {
@@ -52,7 +50,7 @@ namespace GP.Controllers
                 return BadRequest(ModelState);
 
             string? imagePath = null;
-
+            // Handle image upload
             if (model.Image != null)
             {
                 string uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "places");
@@ -76,15 +74,82 @@ namespace GP.Controllers
                 Location = model.Location,
                 MaxAttendees = model.MaxAttendees,
                 PlaceTypeId = model.PlaceTypeId,
-                IsApproved = false,
+                IsApproved = false,  // Initially set to false, pending admin approval.
                 ImageUrl = imagePath,
-                CreatedByUserId = userId
+                CreatedByUserId = userId,
+                SecurityClearanceUrl = model.SecurityClearance,
+                OwnershipContractUrl = model.OwnershipContract,
+                NationalIdFrontUrl = model.NationalIdFront,
+                NationalIdBackUrl = model.NationalIdBack,
+                StripePaymentLink = model.StripePaymentLink
             };
 
             _context.Places.Add(place);
             await _context.SaveChangesAsync();
 
             return Ok(new { message = "Place added successfully and is waiting for admin approval." });
+        }
+
+        // ✅ Edit place details
+        [HttpPut("edit/{id}")]
+        public async Task<IActionResult> EditPlace(int id, [FromForm] AddPlaceDto model)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            var place = await _context.Places
+                .FirstOrDefaultAsync(p => p.Id == id && p.CreatedByUserId == userId && !p.IsDeleted);
+
+            if (place == null) return NotFound("Place not found.");
+
+            // Update place info
+            place.Location = model.Location ?? place.Location;
+            place.MaxAttendees = model.MaxAttendees != 0 ? model.MaxAttendees : place.MaxAttendees;
+
+            // Update Image (if uploaded)
+            if (model.Image != null)
+            {
+                string uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "places");
+                Directory.CreateDirectory(uploadsFolder);
+
+                string uniqueFileName = Guid.NewGuid().ToString() + Path.GetExtension(model.Image.FileName);
+                string fullPath = Path.Combine(uploadsFolder, uniqueFileName);
+
+                using (var stream = new FileStream(fullPath, FileMode.Create))
+                {
+                    await model.Image.CopyToAsync(stream);
+                }
+
+                place.ImageUrl = $"/images/places/{uniqueFileName}";
+            }
+
+            // Set place back to pending approval after edit
+            place.IsApproved = false;
+
+            // Add documents if they are uploaded
+            place.SecurityClearanceUrl = model.SecurityClearance ?? place.SecurityClearanceUrl;
+            place.OwnershipContractUrl = model.OwnershipContract ?? place.OwnershipContractUrl;
+            place.NationalIdFrontUrl = model.NationalIdFront ?? place.NationalIdFrontUrl;
+            place.NationalIdBackUrl = model.NationalIdBack ?? place.NationalIdBackUrl;
+            place.StripePaymentLink = model.StripePaymentLink ?? place.StripePaymentLink;
+
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Place updated successfully. Awaiting admin approval." });
+        }
+
+        // ✅ Delete place (soft delete)
+        [HttpDelete("delete/{id}")]
+        public async Task<IActionResult> DeletePlace(int id)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            var place = await _context.Places
+                .FirstOrDefaultAsync(p => p.Id == id && p.CreatedByUserId == userId && !p.IsDeleted);
+
+            if (place == null) return NotFound("Place not found.");
+
+            place.IsDeleted = true;
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Place deleted successfully." });
         }
     }
 }
