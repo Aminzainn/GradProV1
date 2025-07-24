@@ -31,7 +31,7 @@ namespace GP.Controllers
             var userId = User.Claims.FirstOrDefault(c => c.Type == "id")?.Value;
             if (userId == null) return Unauthorized();
             if (dto.Image == null)
-                return BadRequest("Image is required");
+                return BadRequest(new { message = "Image is required" });
 
             string imagesPath = Path.Combine(_env.WebRootPath, "images", "events");
             Directory.CreateDirectory(imagesPath);
@@ -314,8 +314,8 @@ namespace GP.Controllers
         public async Task<IActionResult> BuyTicket(int ticketTypeId, [FromBody] int quantity)
         {
             var ticketType = await _context.TicketTypes.FindAsync(ticketTypeId);
-            if (ticketType == null) return NotFound("Ticket type not found.");
-            if (ticketType.Quantity < quantity) return BadRequest("Not enough tickets available.");
+            if (ticketType == null) return NotFound(new { message = "Ticket type not found." });
+            if (ticketType.Quantity < quantity) return BadRequest(new { message = "Not enough tickets available." });
 
             ticketType.Quantity -= quantity;
             await _context.SaveChangesAsync();

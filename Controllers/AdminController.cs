@@ -80,12 +80,12 @@ namespace GP.Controllers
             var ev = await _context.Events.FindAsync(id);
 
             if (ev == null || ev.IsDeleted)
-                return NotFound("Event not found.");
+                return NotFound(new { message = "Event not found." });
 
             ev.IsApproved = false;
             ev.AdminNote = adminNote;
             await _context.SaveChangesAsync();
-            return Ok("Event rejected.");
+            return Ok(new { message = "Event rejected." });
         }
 
         // Get all pending and approved places
@@ -121,7 +121,7 @@ namespace GP.Controllers
         {
             var place = await _context.Places.FindAsync(id);
             if (place == null)
-                return NotFound("Place not found.");
+                return NotFound(new { message = "Place not found." });
 
             place.IsApproved = true;
             await _context.SaveChangesAsync();
@@ -134,13 +134,13 @@ namespace GP.Controllers
         {
             var place = await _context.Places.FindAsync(id);
             if (place == null)
-                return NotFound("Place not found.");
+                return NotFound(new { message = "Place not found." });
 
             place.IsApproved = false;
             // Optionally, add a Note property to Place for rejection reason
             // place.AdminNote = adminNote;
             await _context.SaveChangesAsync();
-            return Ok("Place rejected.");
+            return Ok(new { message = "Place rejected." });
         }
     }
 }

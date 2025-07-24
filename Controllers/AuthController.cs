@@ -35,10 +35,10 @@ namespace GP.Controllers
             if (!ModelState.IsValid) return BadRequest(ModelState);
 
             if (await _userManager.FindByNameAsync(model.UserName) != null)
-                return BadRequest("Username is already taken");
+                return BadRequest(new { message =  "Username is already taken" });
 
             if (await _userManager.FindByEmailAsync(model.Email) != null)
-                return BadRequest("Email is already registered");
+                return BadRequest(new { message = "Email is already registered" });
 
             var user = new ApplicationUser
             {
@@ -57,7 +57,7 @@ namespace GP.Controllers
 
             await _userManager.AddToRoleAsync(user, "User");
 
-            return Ok("Registration successful");
+            return Ok(new { message = "Registration successful" });
         }
 
         [HttpPost("login")]
@@ -70,12 +70,12 @@ namespace GP.Controllers
                     ?? await _userManager.FindByEmailAsync(model.UserNameOrEmail);
 
             if (user == null)
-                return Unauthorized("Invalid credentials");
+                return Unauthorized(new { message = "Invalid credentials" });
 
             var result = await _signInManager.CheckPasswordSignInAsync(user, model.Password, false);
 
             if (!result.Succeeded)
-                return Unauthorized("Invalid credentials");
+                return Unauthorized(new { message = "Invalid credentials" });
 
             var token = await GenerateJwtToken(user);
 
@@ -94,14 +94,14 @@ namespace GP.Controllers
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (userId == null)
-                return Unauthorized("User ID not found in token");
+                return Unauthorized(new { message = "User ID not found in token" });
 
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null)
-                return NotFound("User not found");
+                return NotFound(new { message = "User not found" });
 
             if (await _userManager.IsInRoleAsync(user, "Service Provider"))
-                return BadRequest("User is already a Service Provider");
+                return BadRequest(new { message = "User is already a Service Provider" });
 
             if (await _userManager.IsInRoleAsync(user, "User"))
                 await _userManager.RemoveFromRoleAsync(user, "User");
