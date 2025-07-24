@@ -23,7 +23,7 @@ namespace GP.Controllers
             _env = env;
         }
 
-        // ✅ Add Event with Image and Documents
+        // ✅ Add Event with Image, Documents, and Location
         [HttpPost("add-event")]
         [Authorize(Roles = "Service Provider")]
         public async Task<IActionResult> AddEventWithImage([FromForm] AddEventWithImageDto dto)
@@ -79,7 +79,11 @@ namespace GP.Controllers
                     Name = t.Name,
                     Price = t.Price,
                     Quantity = t.Quantity
-                }).ToList()
+                }).ToList(),
+                // 👇 NEW: Location fields for Leaflet
+                LocationAddress = dto.LocationAddress,
+                Latitude = dto.Latitude,
+                Longitude = dto.Longitude
             };
 
             _context.Events.Add(newEvent);
@@ -138,7 +142,11 @@ namespace GP.Controllers
                         Name = t.Name,
                         Price = t.Price,
                         Quantity = t.Quantity
-                    }).ToList()
+                    }).ToList(),
+                    // 👇 NEW
+                    LocationAddress = e.LocationAddress,
+                    Latitude = e.Latitude,
+                    Longitude = e.Longitude
                 })
                 .ToListAsync();
 
@@ -182,7 +190,11 @@ namespace GP.Controllers
                         Name = t.Name,
                         Price = t.Price,
                         Quantity = t.Quantity
-                    }).ToList()
+                    }).ToList(),
+                    // 👇 NEW
+                    LocationAddress = e.LocationAddress,
+                    Latitude = e.Latitude,
+                    Longitude = e.Longitude
                 }).FirstOrDefaultAsync();
 
             if (ev == null) return NotFound();
@@ -217,6 +229,10 @@ namespace GP.Controllers
             ev.TeamB = dto.TeamB ?? ev.TeamB;
             ev.Performers = dto.Performers != null ? string.Join(", ", dto.Performers) : ev.Performers;
             ev.PlaceName = dto.PlaceName ?? ev.PlaceName;
+            // 👇 NEW: Update location
+            ev.LocationAddress = dto.LocationAddress ?? ev.LocationAddress;
+            ev.Latitude = dto.Latitude ?? ev.Latitude;
+            ev.Longitude = dto.Longitude ?? ev.Longitude;
 
             // Update images if uploaded
             if (dto.Image != null)

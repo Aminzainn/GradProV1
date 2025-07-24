@@ -19,9 +19,19 @@ namespace GP.Models
         public DbSet<EventParticipant> EventParticipants { get; set; }
         public DbSet<ParticipantType> ParticipantTypes { get; set; }
 
+        public DbSet<PlaceAvailability> PlaceAvailabilities { get; set; }
+
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
+
+            builder.Entity<PlaceAvailability>()
+                .HasOne(pa => pa.Place)
+                .WithMany(p => p.Availabilities)
+                .HasForeignKey(pa => pa.PlaceId)
+                .OnDelete(DeleteBehavior.Cascade);
+
 
             builder.Entity<Reservation>()
                 .HasOne(r => r.BookedSlot)

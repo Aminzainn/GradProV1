@@ -37,6 +37,10 @@ namespace GP.Models
         public string? CivilProtectionApprovalBackUrl { get; set; }
         public string? EventInsuranceUrl { get; set; }
 
+        // Location fields
+        public string? LocationAddress { get; set; }
+        public double? Latitude { get; set; }
+        public double? Longitude { get; set; }
     }
 
 }

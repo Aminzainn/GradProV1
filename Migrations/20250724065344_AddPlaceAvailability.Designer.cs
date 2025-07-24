@@ -4,6 +4,7 @@ using GP.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace GP.Migrations
 {
     [DbContext(typeof(EventManagerContext))]
-    partial class EventManagerContextModelSnapshot : ModelSnapshot
+    [Migration("20250724065344_AddPlaceAvailability")]
+    partial class AddPlaceAvailability
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -186,15 +189,6 @@ namespace GP.Migrations
 
                     b.Property<bool>("IsTicketed")
                         .HasColumnType("bit");
-
-                    b.Property<double?>("Latitude")
-                        .HasColumnType("float");
-
-                    b.Property<string>("LocationAddress")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<double?>("Longitude")
-                        .HasColumnType("float");
 
                     b.Property<string>("Name")
                         .IsRequired()

@@ -14,7 +14,22 @@ namespace GP.Models.DTO
         [Required]
         public int PlaceTypeId { get; set; }
 
-        // 👇 الصور المرفوعة
+        [Required]
+        public decimal Price { get; set; }
+
+        public string? StripePaymentLink { get; set; }
+
         public IFormFile? Image { get; set; }
+        public IFormFile? SecurityClearance { get; set; }
+        public IFormFile? OwnershipOrRentalContract { get; set; }
+        public IFormFile? NationalIdFront { get; set; }
+        public IFormFile? NationalIdBack { get; set; }
+
+        // For updating/editing, in case you want to keep URLs as well
+        public string? ImageUrl { get; set; }
+        public string? SecurityClearanceUrl { get; set; }
+        public string? OwnershipOrRentalContractUrl { get; set; }
+        public string? NationalIdFrontUrl { get; set; }
+        public string? NationalIdBackUrl { get; set; }
     }
 }

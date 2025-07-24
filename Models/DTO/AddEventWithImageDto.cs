@@ -48,4 +48,10 @@ public class AddEventWithImageDto
     public string? CivilProtectionApprovalBackUrl { get; set; }
     public string? EventInsuranceUrl { get; set; }
 
+    // At the end, after all current fields:
+    public string? LocationAddress { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+
+
 }

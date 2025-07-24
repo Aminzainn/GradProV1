@@ -28,6 +28,13 @@ namespace GP.Models.DTO
         public string? CivilProtectionApprovalFrontUrl { get; set; }
         public string? CivilProtectionApprovalBackUrl { get; set; }
         public string? EventInsuranceUrl { get; set; }
+
+        public string? LocationAddress { get; set; }
+        public double? Latitude { get; set; }
+        public double? Longitude { get; set; }
+
+        // Map marker longitude
+
     }
 
 }

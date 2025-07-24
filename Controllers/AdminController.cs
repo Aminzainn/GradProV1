@@ -19,7 +19,7 @@ namespace GP.Controllers
             _context = context;
         }
 
-        // Get pending events with documents
+        // Get pending events with documents and location info
         [HttpGet("pending-events")]
         public async Task<IActionResult> GetPendingEvents()
         {
@@ -47,7 +47,11 @@ namespace GP.Controllers
                     e.PlaceName,
                     e.IsTicketed,
                     e.FixedPrice,
-                    e.AdminNote
+                    e.AdminNote,
+                    // 👇 Location fields
+                    e.LocationAddress,
+                    e.Latitude,
+                    e.Longitude
                 })
                 .ToListAsync();
 
@@ -84,6 +88,59 @@ namespace GP.Controllers
             return Ok("Event rejected.");
         }
 
+        // Get all pending and approved places
+        [HttpGet("places")]
+        public async Task<IActionResult> GetPlaces([FromQuery] bool? isApproved = null)
+        {
+            var query = _context.Places.Include(p => p.PlaceType).AsQueryable();
+            if (isApproved.HasValue)
+                query = query.Where(p => p.IsApproved == isApproved.Value);
 
+            var places = await query.Select(p => new MyPlaceDto
+            {
+                Id = p.Id,
+                Location = p.Location,
+                MaxAttendees = p.MaxAttendees,
+                PlaceTypeName = p.PlaceType.Name,
+                IsApproved = p.IsApproved,
+                Price = p.Price,
+                ImageUrl = p.ImageUrl,
+                SecurityClearanceUrl = p.SecurityClearanceUrl,
+                OwnershipOrRentalContractUrl = p.OwnershipOrRentalContractUrl,
+                NationalIdFrontUrl = p.NationalIdFrontUrl,
+                NationalIdBackUrl = p.NationalIdBackUrl,
+                StripePaymentLink = p.StripePaymentLink
+            }).ToListAsync();
+
+            return Ok(places);
+        }
+
+        // Approve place
+        [HttpPost("approve-place/{id}")]
+        public async Task<IActionResult> ApprovePlace(int id)
+        {
+            var place = await _context.Places.FindAsync(id);
+            if (place == null)
+                return NotFound("Place not found.");
+
+            place.IsApproved = true;
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Place approved." });
+        }
+
+        // Reject place
+        [HttpPost("reject-place/{id}")]
+        public async Task<IActionResult> RejectPlace(int id, [FromBody] string adminNote)
+        {
+            var place = await _context.Places.FindAsync(id);
+            if (place == null)
+                return NotFound("Place not found.");
+
+            place.IsApproved = false;
+            // Optionally, add a Note property to Place for rejection reason
+            // place.AdminNote = adminNote;
+            await _context.SaveChangesAsync();
+            return Ok("Place rejected.");
+        }
     }
 }

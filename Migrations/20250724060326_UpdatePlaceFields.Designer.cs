@@ -4,6 +4,7 @@ using GP.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace GP.Migrations
 {
     [DbContext(typeof(EventManagerContext))]
-    partial class EventManagerContextModelSnapshot : ModelSnapshot
+    [Migration("20250724060326_UpdatePlaceFields")]
+    partial class UpdatePlaceFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -186,15 +189,6 @@ namespace GP.Migrations
 
                     b.Property<bool>("IsTicketed")
                         .HasColumnType("bit");
-
-                    b.Property<double?>("Latitude")
-                        .HasColumnType("float");
-
-                    b.Property<string>("LocationAddress")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<double?>("Longitude")
-                        .HasColumnType("float");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -410,33 +404,6 @@ namespace GP.Migrations
                     b.HasIndex("PlaceTypeId");
 
                     b.ToTable("Places");
-                });
-
-            modelBuilder.Entity("GP.Models.PlaceAvailability", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("Date")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsBlocked")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Note")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("PlaceId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PlaceId");
-
-                    b.ToTable("PlaceAvailabilities");
                 });
 
             modelBuilder.Entity("GP.Models.PlaceType", b =>
@@ -758,17 +725,6 @@ namespace GP.Migrations
                     b.Navigation("PlaceType");
                 });
 
-            modelBuilder.Entity("GP.Models.PlaceAvailability", b =>
-                {
-                    b.HasOne("GP.Models.Place", "Place")
-                        .WithMany("Availabilities")
-                        .HasForeignKey("PlaceId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Place");
-                });
-
             modelBuilder.Entity("GP.Models.Reservation", b =>
                 {
                     b.HasOne("GP.Models.Event", "Event")
@@ -886,8 +842,6 @@ namespace GP.Migrations
 
             modelBuilder.Entity("GP.Models.Place", b =>
                 {
-                    b.Navigation("Availabilities");
-
                     b.Navigation("Events");
                 });
 
