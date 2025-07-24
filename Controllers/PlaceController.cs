@@ -9,7 +9,6 @@ namespace GP.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Service Provider")]
     public class PlaceController : ControllerBase
     {
         private readonly EventManagerContext _context;
