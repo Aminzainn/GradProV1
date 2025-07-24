@@ -70,12 +70,12 @@ namespace GP.Controllers
                     ?? await _userManager.FindByEmailAsync(model.UserNameOrEmail);
 
             if (user == null)
-                return Unauthorized(new { message = "Invalid credentials" });
+                return Unauthorized(new { message = "Invalid Email or Username" });
 
             var result = await _signInManager.CheckPasswordSignInAsync(user, model.Password, false);
 
             if (!result.Succeeded)
-                return Unauthorized(new { message = "Invalid credentials" });
+                return Unauthorized(new { message = "Invalid Password" });
 
             var token = await GenerateJwtToken(user);
 
