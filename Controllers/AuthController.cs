@@ -3,11 +3,17 @@ using GP.Models.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Hosting; // <== add this
+using Microsoft.EntityFrameworkCore;
+using GP.Models.DTO; // <== add this
+
 
 namespace GP.Controllers
 {
@@ -18,15 +24,26 @@ namespace GP.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly JwtSettings _jwtSettings;
+        private readonly EventManagerContext _context; // <== add this
+        private readonly IWebHostEnvironment _env; // <== add this
+
 
         public AuthController(
             UserManager<ApplicationUser> userManager,
             SignInManager<ApplicationUser> signInManager,
-            IOptions<JwtSettings> jwtSettings)
+            IOptions<JwtSettings> jwtSettings,
+            EventManagerContext context, // <== add this
+            IWebHostEnvironment env // <== add this
+
+
+            )
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _jwtSettings = jwtSettings.Value;
+            _context = context; // <== add this
+            _env = env;         // <== add this
+
         }
 
         [HttpPost("register")]
@@ -88,32 +105,46 @@ namespace GP.Controllers
             });
         }
 
+        // POST: api/Auth/request-provider
         [Authorize]
-        [HttpPost("become-provider")]
-        public async Task<IActionResult> BecomeServiceProvider()
+        [HttpPost("request-service-provider")]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> RequestServiceProvider([FromForm] SubmitServiceProviderRequestDto dto)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (userId == null)
-                return Unauthorized(new { message = "User ID not found in token" });
 
-            var user = await _userManager.FindByIdAsync(userId);
-            if (user == null)
-                return NotFound(new { message = "User not found" });
+            // Check if user already has a pending request
+            if (_context.ServiceProviderRequests.Any(r => r.UserId == userId && r.IsApproved == null))
+                return BadRequest(new { message = "You already have a pending request." });
 
-            if (await _userManager.IsInRoleAsync(user, "Service Provider"))
-                return BadRequest(new { message = "User is already a Service Provider" });
+            // Save files
+            var uploadsFolder = Path.Combine(_env.WebRootPath, "images", "provider-requests");
+            Directory.CreateDirectory(uploadsFolder);
 
-            if (await _userManager.IsInRoleAsync(user, "User"))
-                await _userManager.RemoveFromRoleAsync(user, "User");
+            string SaveFile(IFormFile file, string label)
+            {
+                var fileName = $"{Guid.NewGuid()}_{label}{Path.GetExtension(file.FileName)}";
+                var filePath = Path.Combine(uploadsFolder, fileName);
+                using var stream = new FileStream(filePath, FileMode.Create);
+                file.CopyTo(stream);
+                return $"/images/provider-requests/{fileName}";
+            }
 
-            var result = await _userManager.AddToRoleAsync(user, "Service Provider");
+            var req = new ServiceProviderRequest
+            {
+                UserId = userId,
+                NationalIdFrontUrl = SaveFile(dto.NationalIdFront, "id_front"),
+                NationalIdBackUrl = SaveFile(dto.NationalIdBack, "id_back"),
+                HoldingIdUrl = SaveFile(dto.HoldingId, "holding_id"),
+                StripePaymentLink = dto.StripePaymentLink,
+                RequestedAt = DateTime.UtcNow
+            };
+            _context.ServiceProviderRequests.Add(req);
+            await _context.SaveChangesAsync();
 
-            if (!result.Succeeded)
-                return BadRequest("Failed to assign role");
-
-            return Ok(new { message = "You are now a Service Provider" });
-
+            return Ok(new { message = "Request submitted. Await admin approval." });
         }
+
 
         private async Task<string> GenerateJwtToken(ApplicationUser user)
         {

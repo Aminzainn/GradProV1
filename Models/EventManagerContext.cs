@@ -20,6 +20,8 @@ namespace GP.Models
         public DbSet<ParticipantType> ParticipantTypes { get; set; }
         public DbSet<PlaceAvailability> PlaceAvailabilities { get; set; }
 
+        public DbSet<ServiceProviderRequest> ServiceProviderRequests { get; set; }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
