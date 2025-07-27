@@ -18,20 +18,31 @@ namespace GP.Models
         public DbSet<Payment> Payments { get; set; }
         public DbSet<EventParticipant> EventParticipants { get; set; }
         public DbSet<ParticipantType> ParticipantTypes { get; set; }
-
         public DbSet<PlaceAvailability> PlaceAvailabilities { get; set; }
-
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
+
+            // Remove the foreign key relationship for PlaceTypeId and use PlaceTypeName instead
+            builder.Entity<Place>()
+                .Property(p => p.PlaceTypeName)
+                .IsRequired(); // Ensure the PlaceTypeName is required for the frontend dropdown
+
+            // Latitude and Longitude for storing location coordinates
+            builder.Entity<Place>()
+                .Property(p => p.Latitude)
+                .HasColumnType("decimal(18, 10)");
+
+            builder.Entity<Place>()
+                .Property(p => p.Longitude)
+                .HasColumnType("decimal(18, 10)");
 
             builder.Entity<PlaceAvailability>()
                 .HasOne(pa => pa.Place)
                 .WithMany(p => p.Availabilities)
                 .HasForeignKey(pa => pa.PlaceId)
                 .OnDelete(DeleteBehavior.Cascade);
-
 
             builder.Entity<Reservation>()
                 .HasOne(r => r.BookedSlot)
@@ -82,7 +93,7 @@ namespace GP.Models
             builder.Entity<Payment>().HasQueryFilter(p => !p.Reservation.Event.IsDeleted);
             builder.Entity<Ticket>().HasQueryFilter(t => !t.Reservation.Event.IsDeleted);
 
-            // 🔢 Decimal Precision
+            // 🔢 Decimal Precision for financial fields
             builder.Entity<Event>()
                 .Property(e => e.FixedPrice)
                 .HasPrecision(18, 2);

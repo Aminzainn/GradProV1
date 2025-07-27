@@ -5,7 +5,7 @@
         public int Id { get; set; }
         public string Location { get; set; }
         public int MaxAttendees { get; set; }
-        public string PlaceTypeName { get; set; }
+        public string PlaceTypeName { get; set; } // Display PlaceTypeName directly
         public bool IsApproved { get; set; }
         public decimal Price { get; set; }
         public string? ImageUrl { get; set; }
@@ -14,5 +14,9 @@
         public string? NationalIdFrontUrl { get; set; }
         public string? NationalIdBackUrl { get; set; }
         public string? StripePaymentLink { get; set; }
+
+        // New fields for latitude and longitude (for displaying location info)
+        public decimal? Latitude { get; set; }
+        public decimal? Longitude { get; set; }
     }
 }

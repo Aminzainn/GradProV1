@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using System.IO;
 
 namespace GP.Controllers
 {
@@ -20,7 +21,7 @@ namespace GP.Controllers
             _env = env;
         }
 
-        // Get only places added by the current Service Provider
+        // Get places added by the current Service Provider
         [HttpGet("my-places")]
         [Authorize(Roles = "Service Provider")]
         public async Task<IActionResult> GetMyPlaces()
@@ -28,14 +29,13 @@ namespace GP.Controllers
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
             var places = await _context.Places
-                .Include(p => p.PlaceType)
                 .Where(p => p.CreatedByUserId == userId)
                 .Select(p => new MyPlaceDto
                 {
                     Id = p.Id,
                     Location = p.Location,
                     MaxAttendees = p.MaxAttendees,
-                    PlaceTypeName = p.PlaceType.Name,
+                    PlaceTypeName = p.PlaceTypeName, // Get the PlaceTypeName directly
                     IsApproved = p.IsApproved,
                     Price = p.Price,
                     ImageUrl = p.ImageUrl,
@@ -43,14 +43,16 @@ namespace GP.Controllers
                     OwnershipOrRentalContractUrl = p.OwnershipOrRentalContractUrl,
                     NationalIdFrontUrl = p.NationalIdFrontUrl,
                     NationalIdBackUrl = p.NationalIdBackUrl,
-                    StripePaymentLink = p.StripePaymentLink
+                    StripePaymentLink = p.StripePaymentLink,
+                    Latitude = p.Latitude, // Location latitude
+                    Longitude = p.Longitude // Location longitude
                 })
                 .ToListAsync();
 
             return Ok(places);
         }
 
-        // Add Place (linked to Service Provider)
+        // Add a new Place (linked to Service Provider)
         [HttpPost("add")]
         [Authorize(Roles = "Service Provider")]
         [Consumes("multipart/form-data")]
@@ -62,6 +64,7 @@ namespace GP.Controllers
             var uploadsFolder = Path.Combine(_env.WebRootPath, "images", "places");
             Directory.CreateDirectory(uploadsFolder);
 
+            // Saving images
             string? imageUrl = await SaveFileAsync(model.Image, uploadsFolder, "image");
             string? securityClearanceUrl = await SaveFileAsync(model.SecurityClearance, uploadsFolder, "security");
             string? ownershipOrRentalContractUrl = await SaveFileAsync(model.OwnershipOrRentalContract, uploadsFolder, "contract");
@@ -70,11 +73,12 @@ namespace GP.Controllers
 
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
+            // Create a new place and save the location with latitude and longitude
             var place = new Place
             {
                 Location = model.Location,
                 MaxAttendees = model.MaxAttendees,
-                PlaceTypeId = model.PlaceTypeId,
+                PlaceTypeName = model.PlaceTypeName, // Use PlaceTypeName directly
                 Price = model.Price,
                 IsApproved = false,
                 ImageUrl = imageUrl,
@@ -83,13 +87,21 @@ namespace GP.Controllers
                 NationalIdFrontUrl = nationalIdFrontUrl,
                 NationalIdBackUrl = nationalIdBackUrl,
                 StripePaymentLink = model.StripePaymentLink,
-                CreatedByUserId = userId
+                CreatedByUserId = userId,
+                Latitude = model.Latitude, // Store latitude from the frontend
+                Longitude = model.Longitude // Store longitude from the frontend
             };
 
-            _context.Places.Add(place);
-            await _context.SaveChangesAsync();
-
-            return Ok(new { message = "Place added successfully and is waiting for admin approval." });
+            try
+            {
+                _context.Places.Add(place);
+                await _context.SaveChangesAsync();
+                return Ok(new { message = "Place added successfully and is waiting for admin approval." });
+            }
+            catch (DbUpdateException ex)
+            {
+                return BadRequest(new { error = ex.InnerException?.Message ?? ex.Message });
+            }
         }
 
         // Helper method for file saving
@@ -105,20 +117,19 @@ namespace GP.Controllers
             return $"/images/places/{fileName}";
         }
 
-        // Get single place details
+        // Get details of a single place
         [HttpGet("{id}")]
         [Authorize]
         public async Task<IActionResult> GetPlaceDetails(int id)
         {
             var place = await _context.Places
-                .Include(p => p.PlaceType)
                 .Where(p => p.Id == id)
                 .Select(p => new MyPlaceDto
                 {
                     Id = p.Id,
                     Location = p.Location,
                     MaxAttendees = p.MaxAttendees,
-                    PlaceTypeName = p.PlaceType.Name,
+                    PlaceTypeName = p.PlaceTypeName, // Use the PlaceTypeName directly
                     IsApproved = p.IsApproved,
                     Price = p.Price,
                     ImageUrl = p.ImageUrl,
@@ -126,7 +137,9 @@ namespace GP.Controllers
                     OwnershipOrRentalContractUrl = p.OwnershipOrRentalContractUrl,
                     NationalIdFrontUrl = p.NationalIdFrontUrl,
                     NationalIdBackUrl = p.NationalIdBackUrl,
-                    StripePaymentLink = p.StripePaymentLink
+                    StripePaymentLink = p.StripePaymentLink,
+                    Latitude = p.Latitude, // Location latitude
+                    Longitude = p.Longitude // Location longitude
                 })
                 .FirstOrDefaultAsync();
 
@@ -134,7 +147,7 @@ namespace GP.Controllers
             return Ok(place);
         }
 
-        // Edit place
+        // Edit a place (update details of an existing place)
         [HttpPut("edit/{id}")]
         [Authorize(Roles = "Service Provider")]
         [Consumes("multipart/form-data")]
@@ -149,7 +162,7 @@ namespace GP.Controllers
 
             place.Location = model.Location;
             place.MaxAttendees = model.MaxAttendees;
-            place.PlaceTypeId = model.PlaceTypeId;
+            place.PlaceTypeName = model.PlaceTypeName; // Update PlaceTypeName directly
             place.Price = model.Price;
             place.StripePaymentLink = model.StripePaymentLink;
 
@@ -166,12 +179,15 @@ namespace GP.Controllers
 
             // Revert approval after edit
             place.IsApproved = false;
+            place.Latitude = model.Latitude; // Update latitude from frontend
+            place.Longitude = model.Longitude; // Update longitude from frontend
+
             await _context.SaveChangesAsync();
 
             return Ok(new { message = "Place updated. Waiting for admin approval." });
         }
 
-        // Soft delete (for now, actually deletes - you can soft delete by adding IsDeleted property if needed)
+        // Soft delete a place (actually deletes it in this case)
         [HttpDelete("delete/{id}")]
         [Authorize(Roles = "Service Provider")]
         public async Task<IActionResult> DeletePlace(int id)
@@ -185,11 +201,9 @@ namespace GP.Controllers
             return Ok(new { message = "Place deleted." });
         }
 
-
         // GET: api/Place/{placeId}/availability
-        // PlaceController.cs
         [HttpGet("{placeId}/availability")]
-        [Authorize(Roles = "Service Provider,Admin")]
+        [Authorize(Roles = "Service Provider, Admin")]
         public async Task<IActionResult> GetPlaceAvailability(int placeId)
         {
             var availability = await _context.PlaceAvailabilities

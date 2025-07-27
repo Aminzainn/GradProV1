@@ -1,6 +1,5 @@
 ﻿using GP.Models;
 using GP.Models.DTO;
-using GP.Models.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -58,7 +57,7 @@ namespace GP.Controllers
             return Ok(pendingEvents);
         }
 
-        // Approve event (same as before)
+        // Approve event
         [HttpPost("approve-event/{id}")]
         public async Task<IActionResult> ApproveEvent(int id)
         {
@@ -70,7 +69,7 @@ namespace GP.Controllers
             ev.IsApproved = true;
             ev.AdminNote = null;
             await _context.SaveChangesAsync();
-            return Ok(new { message = "Event approved." });  // <- return JSON
+            return Ok(new { message = "Event approved." });
         }
 
         // Reject event
@@ -93,15 +92,18 @@ namespace GP.Controllers
         public async Task<IActionResult> GetPlaces([FromQuery] bool? isApproved = null)
         {
             var query = _context.Places.Include(p => p.PlaceType).AsQueryable();
+
+            // Filter places based on approval status
             if (isApproved.HasValue)
                 query = query.Where(p => p.IsApproved == isApproved.Value);
 
+            // Fetch and return the list of places with relevant details
             var places = await query.Select(p => new MyPlaceDto
             {
                 Id = p.Id,
                 Location = p.Location,
                 MaxAttendees = p.MaxAttendees,
-                PlaceTypeName = p.PlaceType.Name,
+                PlaceTypeName = p.PlaceType.Name,  // Fetching PlaceType name as string
                 IsApproved = p.IsApproved,
                 Price = p.Price,
                 ImageUrl = p.ImageUrl,
@@ -115,6 +117,7 @@ namespace GP.Controllers
             return Ok(places);
         }
 
+
         // Approve place
         [HttpPost("approve-place/{id}")]
         public async Task<IActionResult> ApprovePlace(int id)
@@ -125,6 +128,7 @@ namespace GP.Controllers
 
             place.IsApproved = true;
             await _context.SaveChangesAsync();
+
             return Ok(new { message = "Place approved." });
         }
 
@@ -137,9 +141,9 @@ namespace GP.Controllers
                 return NotFound(new { message = "Place not found." });
 
             place.IsApproved = false;
-            // Optionally, add a Note property to Place for rejection reason
-            // place.AdminNote = adminNote;
+            //place.AdminNote = adminNote;  // Saving rejection reason
             await _context.SaveChangesAsync();
+
             return Ok(new { message = "Place rejected." });
         }
     }

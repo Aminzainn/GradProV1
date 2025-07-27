@@ -4,6 +4,7 @@ using GP.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace GP.Migrations
 {
     [DbContext(typeof(EventManagerContext))]
-    partial class EventManagerContextModelSnapshot : ModelSnapshot
+    [Migration("20250726201342_AddLoctionToPlace")]
+    partial class AddLoctionToPlace
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -400,7 +403,7 @@ namespace GP.Migrations
                     b.Property<string>("OwnershipOrRentalContractUrl")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int?>("PlaceTypeId")
+                    b.Property<int>("PlaceTypeId")
                         .HasColumnType("int");
 
                     b.Property<string>("PlaceTypeName")
@@ -762,7 +765,9 @@ namespace GP.Migrations
 
                     b.HasOne("GP.Models.PlaceType", "PlaceType")
                         .WithMany("Places")
-                        .HasForeignKey("PlaceTypeId");
+                        .HasForeignKey("PlaceTypeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("CreatedByUser");
 

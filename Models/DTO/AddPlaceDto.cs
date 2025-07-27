@@ -12,7 +12,7 @@ namespace GP.Models.DTO
         public int MaxAttendees { get; set; }
 
         [Required]
-        public int PlaceTypeId { get; set; }
+        public string PlaceTypeName { get; set; } // Directly use PlaceTypeName (dropdown value)
 
         [Required]
         public decimal Price { get; set; }
@@ -31,5 +31,12 @@ namespace GP.Models.DTO
         public string? OwnershipOrRentalContractUrl { get; set; }
         public string? NationalIdFrontUrl { get; set; }
         public string? NationalIdBackUrl { get; set; }
+
+        // New fields for latitude and longitude (from the frontend Leaflet map)
+        [Required]
+        public decimal Latitude { get; set; }
+
+        [Required]
+        public decimal Longitude { get; set; }
     }
 }
