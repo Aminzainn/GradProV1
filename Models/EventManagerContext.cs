@@ -22,9 +22,12 @@ namespace GP.Models
 
         public DbSet<ServiceProviderRequest> ServiceProviderRequests { get; set; }
 
+        public DbSet<UserTicket> UserTickets { get; set; }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
+
 
             // Remove the foreign key relationship for PlaceTypeId and use PlaceTypeName instead
             builder.Entity<Place>()
@@ -117,6 +120,20 @@ namespace GP.Models
                 .HasOne(r => r.Payment)
                 .WithOne(p => p.Reservation)
                 .HasForeignKey<Payment>(p => p.ReservationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // UserTicket entity configuration
+
+            builder.Entity<UserTicket>()
+    .HasOne(ut => ut.TicketType)
+    .WithMany() // If TicketType doesn't have ICollection<UserTicket>
+    .HasForeignKey(ut => ut.TicketTypeId)
+    .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<UserTicket>()
+                .HasOne(ut => ut.Event)
+                .WithMany() // If Event doesn't have ICollection<UserTicket>
+                .HasForeignKey(ut => ut.EventId)
                 .OnDelete(DeleteBehavior.Restrict);
         }
     }

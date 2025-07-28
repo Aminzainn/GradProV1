@@ -107,68 +107,60 @@ namespace GP.Controllers
         public async Task<IActionResult> BuyTicket([FromBody] BuyTicketDto dto)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var user = await _context.Users.FindAsync(userId);
-
-            var ticketType = await _context.TicketTypes.Include(t => t.Event)
+            var ticketType = await _context.TicketTypes
+                .Include(t => t.Event)
                 .FirstOrDefaultAsync(t => t.Id == dto.TicketTypeId);
 
-            if (ticketType == null || ticketType.Quantity < dto.Quantity || !ticketType.Event.IsApproved)
-                return BadRequest(new { message = "Invalid ticket or not enough available." });
+            if (ticketType == null || !ticketType.Event.IsApproved || ticketType.Quantity < dto.Quantity)
+                return BadRequest(new { message = "Invalid ticket or not enough tickets available." });
 
-            // Decrement tickets
+            // Decrement available ticket count
             ticketType.Quantity -= dto.Quantity;
 
-            // Create reservation & ticket
-            var reservation = new Reservation
-            {
-                UserId = userId,
-                TicketTypeId = ticketType.Id,
-                EventId = ticketType.EventId,
-                Quantity = dto.Quantity,
-                ReservedDateTime = ticketType.Event.Date,
-                TotalPrice = dto.Quantity * ticketType.Price,
-                Status = "Confirmed",
-            };
-            _context.Reservations.Add(reservation);
-            await _context.SaveChangesAsync();
+            var boughtTickets = new List<UserTicket>();
 
-            // Create a ticket entry for each ticket (for PDF & QR code)
             for (int i = 0; i < dto.Quantity; i++)
             {
-                var ticket = new Ticket
+                string qr = Guid.NewGuid().ToString();
+                var userTicket = new UserTicket
                 {
-                    ReservationId = reservation.Id,
-                    QRCode = Guid.NewGuid().ToString(),
-                    IsUsed = false
+                    UserId = userId,
+                    TicketTypeId = ticketType.Id,
+                    EventId = ticketType.EventId,
+                    PurchasedAt = DateTime.Now,
+                    Status = "Confirmed",
+                    QrCode = qr // unique per ticket
                 };
-                _context.Tickets.Add(ticket);
+
+                _context.UserTickets.Add(userTicket);
+                boughtTickets.Add(userTicket);
             }
+
             await _context.SaveChangesAsync();
 
-            return Ok(new { message = "Ticket booked successfully.", reservationId = reservation.Id });
+            return Ok(new { message = "Tickets purchased successfully!", tickets = boughtTickets.Select(t => new { t.Id, t.QrCode }) });
         }
 
         // 4. Generate/download PDF ticket for a reservation (each ticket)
-        [HttpGet("ticket-pdf/{reservationId}")]
-        public async Task<IActionResult> GetTicketPdf(int reservationId)
+        [HttpGet("ticket-pdf/{ticketId}")]
+        public async Task<IActionResult> GetTicketPdf(int ticketId)
         {
-            // 1. Find the reservation and all related info
-            var reservation = await _context.Reservations
-                .Include(r => r.User)
-                .Include(r => r.Event)
-                .Include(r => r.TicketType)
-                .FirstOrDefaultAsync(r => r.Id == reservationId);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var userTicket = await _context.UserTickets
+                .Include(ut => ut.Event)
+                .Include(ut => ut.TicketType)
+                .FirstOrDefaultAsync(ut => ut.Id == ticketId && ut.UserId == userId);
 
-            if (reservation == null)
-                return NotFound("Reservation not found.");
+            if (userTicket == null)
+                return NotFound("Ticket not found.");
 
-            // 2. Generate QR code as PNG byte[]
+            // Generate QR code as PNG byte[]
             var qrGenerator = new QRCodeGenerator();
-            var qrCodeData = qrGenerator.CreateQrCode($"Ticket:{reservation.Id}", QRCodeGenerator.ECCLevel.Q);
+            var qrCodeData = qrGenerator.CreateQrCode(userTicket.QrCode, QRCodeGenerator.ECCLevel.Q);
             var qrCode = new PngByteQRCode(qrCodeData);
             byte[] qrCodeImage = qrCode.GetGraphic(20); // size 20 pixels/module
 
-            // 3. Generate PDF
+            // Generate PDF
             using (var pdfStream = new MemoryStream())
             {
                 var pdf = new PdfDocument();
@@ -177,24 +169,23 @@ namespace GP.Controllers
 
                 // Draw text info
                 gfx.DrawString("Event Ticket", new XFont("Arial", 20, XFontStyle.Bold), XBrushes.Black, new XPoint(40, 40));
-                gfx.DrawString($"Name: {reservation.User.UserName}", new XFont("Arial", 14), XBrushes.Black, new XPoint(40, 80));
-                gfx.DrawString($"Event: {reservation.Event.Name}", new XFont("Arial", 14), XBrushes.Black, new XPoint(40, 110));
-                gfx.DrawString($"Date: {reservation.Event.Date:yyyy-MM-dd HH:mm}", new XFont("Arial", 14), XBrushes.Black, new XPoint(40, 140));
-                gfx.DrawString($"Ticket Type: {reservation.TicketType.Name}", new XFont("Arial", 14), XBrushes.Black, new XPoint(40, 170));
-                gfx.DrawString($"Ticket ID: {reservation.Id}", new XFont("Arial", 14), XBrushes.Black, new XPoint(40, 200));
+                gfx.DrawString($"Name: {userId}", new XFont("Arial", 14), XBrushes.Black, new XPoint(40, 80));
+                gfx.DrawString($"Event: {userTicket.Event.Name}", new XFont("Arial", 14), XBrushes.Black, new XPoint(40, 110));
+                gfx.DrawString($"Date: {userTicket.Event.Date:yyyy-MM-dd HH:mm}", new XFont("Arial", 14), XBrushes.Black, new XPoint(40, 140));
+                gfx.DrawString($"Ticket Type: {userTicket.TicketType.Name}", new XFont("Arial", 14), XBrushes.Black, new XPoint(40, 170));
+                gfx.DrawString($"Ticket ID: {userTicket.Id}", new XFont("Arial", 14), XBrushes.Black, new XPoint(40, 200));
 
                 // Draw QR code image
                 using (var qrStream = new MemoryStream(qrCodeImage))
                 {
                     var xImage = XImage.FromStream(() => qrStream);
-                    gfx.DrawImage(xImage, page.Width - 200, 80, 120, 120); // Position/size as needed
+                    gfx.DrawImage(xImage, page.Width - 200, 80, 120, 120);
                 }
 
                 pdf.Save(pdfStream, false);
                 pdfStream.Position = 0;
 
-                // Return as file download
-                return File(pdfStream.ToArray(), "application/pdf", $"ticket_{reservation.Id}.pdf");
+                return File(pdfStream.ToArray(), "application/pdf", $"ticket_{userTicket.Id}.pdf");
             }
         }
 
@@ -205,31 +196,24 @@ namespace GP.Controllers
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            var tickets = await _context.Reservations
-                .Include(r => r.Event)
-                .Include(r => r.TicketType)
-                .Include(r => r.Tickets)
-                .Where(r => r.UserId == userId && r.TicketTypeId != null)
-                .OrderByDescending(r => r.CreatedAt)
-                .Select(r => new
-                {
-                    r.Id,
-                    EventName = r.Event.Name,
-                    EventDate = r.Event.Date,
-                    TicketType = r.TicketType.Name,
-                    Quantity = r.Quantity,
-                    TotalPrice = r.TotalPrice,
-                    Tickets = r.Tickets.Select(t => new
-                    {
-                        t.Id,
-                        t.QRCode,
-                        PdfUrl = $"/api/User/ticket-pdf/{r.Id}/{t.Id}"
-                    })
-                })
-                .ToListAsync();
+            var tickets = await _context.UserTickets
+                .Include(ut => ut.TicketType)
+                .Include(ut => ut.Event)
+                .Where(ut => ut.UserId == userId)
+                .Select(ut => new {
+                    ut.Id,
+                    ut.PurchasedAt,
+                    ut.Status,
+                    ut.QrCode,
+                    EventName = ut.Event.Name,
+                    EventDate = ut.Event.Date,
+                    TicketType = ut.TicketType.Name
+                }).ToListAsync();
 
             return Ok(tickets);
         }
+
+
     }
 
     public class BuyTicketDto
