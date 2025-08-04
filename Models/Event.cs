@@ -25,7 +25,7 @@ namespace GP.Models
         public decimal? FixedPrice { get; set; }
         public List<TicketType>? TicketTypes { get; set; }
 
-
+        public string StripeProductId { get; set; }
         public string? StripePaymentLink { get; set; }
         public string? AdminNote { get; set; }
 

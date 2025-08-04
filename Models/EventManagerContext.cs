@@ -43,6 +43,10 @@ namespace GP.Models
                 .Property(p => p.Longitude)
                 .HasColumnType("decimal(18, 10)");
 
+            //builder.Entity<Place>()
+            //    .Property(p => p.Price)
+            //    .HasPrecision(18, 2);
+
             builder.Entity<PlaceAvailability>()
                 .HasOne(pa => pa.Place)
                 .WithMany(p => p.Availabilities)

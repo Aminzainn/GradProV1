@@ -6,6 +6,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Stripe;
+using Stripe.Checkout;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,6 +45,15 @@ builder.Services.AddAuthentication(opt =>
         IssuerSigningKey = new SymmetricSecurityKey(key)
     };
 });
+
+//Stripe configuration
+builder.Services.Configure<StripeModel>(builder.Configuration.GetSection("Stripe"));
+builder.Services.AddScoped<TokenService>();
+builder.Services.AddScoped<CustomerService>();
+builder.Services.AddScoped<ChargeService>();
+builder.Services.AddScoped<ProductService>();
+builder.Services.AddScoped<PriceService>();
+builder.Services.AddScoped<SessionService>();
 
 // ✅ CORS for Angular frontend
 builder.Services.AddCors(options =>

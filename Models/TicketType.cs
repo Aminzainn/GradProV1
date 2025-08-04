@@ -7,7 +7,7 @@ public class TicketType
     public int Quantity { get; set; }
 
     public bool IsDeleted { get; set; } = false;
-
+    public string StripePriceId { get; set; }
     public int EventId { get; set; }
     public Event Event { get; set; }
 }
