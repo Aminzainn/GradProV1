@@ -24,6 +24,12 @@ namespace GP.Models
         public ICollection<Ticket> Tickets { get; set; }
         public Payment Payment { get; set; }
         public EventAvailability BookedSlot { get; set; }
+
+        public int? PlaceId { get; set; }
+        [ForeignKey("PlaceId")]
+        public Place Place { get; set; }
+
+
     }
 }
 

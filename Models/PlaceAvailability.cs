@@ -17,5 +17,8 @@ namespace GP.Models
 
         public string? Note { get; set; } // Reason for block (maintenance, offline reservation, etc.)
         public bool IsBlocked { get; set; } = true; // If you want to allow future support for 'available' vs 'unavailable'
+
+        public bool IsAvailable { get; set; } = true;
+
     }
 }

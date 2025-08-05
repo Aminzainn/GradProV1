@@ -4,14 +4,11 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
-using System.Drawing;
-using QRCoder; // for QR code generation
+using QRCoder;
 using PdfSharpCore.Drawing;
 using PdfSharpCore.Pdf;
-
 using System.IO;
 using System.Threading.Tasks;
-
 
 namespace GP.Controllers
 {
@@ -36,7 +33,7 @@ namespace GP.Controllers
             var now = DateTime.Now;
             var query = _context.Events
                 .Include(e => e.TicketTypes)
-                .Where(e => e.IsApproved && !e.IsDeleted && e.Date > now);
+                .Where(e => e.IsApproved && e.Date > now);
 
             if (!string.IsNullOrEmpty(eventType))
                 query = query.Where(e => e.EventType.ToLower() == eventType.ToLower());
@@ -73,7 +70,7 @@ namespace GP.Controllers
             var now = DateTime.Now;
             var ev = await _context.Events
                 .Include(e => e.TicketTypes)
-                .FirstOrDefaultAsync(e => e.Id == id && e.IsApproved && !e.IsDeleted && e.Date > now);
+                .FirstOrDefaultAsync(e => e.Id == id && e.IsApproved && e.Date > now);
 
             if (ev == null) return NotFound();
 
@@ -189,7 +186,6 @@ namespace GP.Controllers
             }
         }
 
-
         // 5. My Tickets (with download PDF links)
         [HttpGet("my-tickets")]
         public async Task<IActionResult> GetMyTickets()
@@ -213,12 +209,172 @@ namespace GP.Controllers
             return Ok(tickets);
         }
 
+        // List all approved places (with filter)
+        [HttpGet("places")]
+        public async Task<IActionResult> GetPlaces([FromQuery] string? placeType = null, [FromQuery] string? search = null)
+        {
+            var query = _context.Places
+                .Where(p => p.IsApproved);
 
-    }
+            if (!string.IsNullOrEmpty(placeType))
+                query = query.Where(p => p.PlaceTypeName.ToLower() == placeType.ToLower());
 
-    public class BuyTicketDto
-    {
-        public int TicketTypeId { get; set; }
-        public int Quantity { get; set; }
+            if (!string.IsNullOrEmpty(search))
+                query = query.Where(p => p.Location.ToLower().Contains(search.ToLower())); // adjust field to your model
+
+            var places = await query
+                .Select(p => new {
+                    p.Id,
+                    Location = p.Location,
+                    p.PlaceTypeName,
+                    p.Latitude,
+                    p.Longitude,
+                    p.ImageUrl
+                    // add fields as needed from your Place model
+                })
+                .OrderBy(p => p.Location)
+                .ToListAsync();
+
+            return Ok(places);
+        }
+
+        // Details for one place + available dates
+        [HttpGet("place/{id}")]
+        public async Task<IActionResult> GetPlaceDetails(int id)
+        {
+            var place = await _context.Places
+                .Include(p => p.Availabilities)
+                .FirstOrDefaultAsync(p => p.Id == id && p.IsApproved);
+
+            if (place == null) return NotFound();
+
+            var availabilities = place.Availabilities
+                //.Where(a => a.Date >= DateTime.Today) // Uncomment if you have Date field
+                .Select(a => new {
+                    a.Id,
+                    a.Date,
+                    IsAvailable = true // if you don't have IsAvailable, assume all are available (or add logic)
+                }).ToList();
+
+            return Ok(new
+            {
+                place.Id,
+                Location = place.Location,
+                place.PlaceTypeName,
+                place.Latitude,
+                place.Longitude,
+                place.ImageUrl,
+                Availabilities = availabilities
+            });
+        }
+
+        // Place reservation (cart) -- Update to match your model
+        [HttpPost("reserve-place")]
+        public async Task<IActionResult> ReservePlace([FromBody] ReservePlaceDto dto)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var place = await _context.Places.FirstOrDefaultAsync(p => p.Id == dto.PlaceId && p.IsApproved);
+            if (place == null) return BadRequest("Place not found.");
+
+            // Optionally check if date is already reserved by any reservation
+            var isDateTaken = await _context.Reservations
+                .AnyAsync(r => r.PlaceId == dto.PlaceId && r.ReservedDateTime == dto.Date);
+            if (isDateTaken)
+                return BadRequest("Selected date is not available.");
+
+            // Create reservation
+            var reservation = new Reservation
+            {
+                UserId = userId,
+                PlaceId = place.Id,
+                ReservedDateTime = dto.Date,
+                Status = "Pending"
+            };
+
+            _context.Reservations.Add(reservation);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Reservation added to cart!", reservationId = reservation.Id });
+        }
+
+        public class ReservePlaceDto
+        {
+            public int PlaceId { get; set; }
+            public DateTime Date { get; set; }
+        }
+
+        [HttpPost("pay-reservation/{reservationId}")]
+        public async Task<IActionResult> PayReservation(int reservationId)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var reservation = await _context.Reservations
+                .Include(r => r.Place)
+                .FirstOrDefaultAsync(r => r.Id == reservationId && r.UserId == userId);
+
+            if (reservation == null) return NotFound("Reservation not found.");
+
+            reservation.Status = "Confirmed";
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Reservation confirmed!" });
+        }
+
+        [HttpGet("my-reservations")]
+        public async Task<IActionResult> GetMyReservations()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var reservations = await _context.Reservations
+                .Include(r => r.Place)
+                .Where(r => r.UserId == userId)
+                .OrderByDescending(r => r.ReservedDateTime)
+                .Select(r => new {
+                    r.Id,
+                    Date = r.ReservedDateTime,
+                    r.Status,
+                    PlaceName = r.Place.Location, // Use Location as PlaceName substitute
+                    r.PlaceId
+                }).ToListAsync();
+
+            return Ok(reservations);
+        }
+
+        [HttpGet("reservation-pdf/{reservationId}")]
+        public async Task<IActionResult> GetReservationPdf(int reservationId)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var reservation = await _context.Reservations
+                .Include(r => r.Place)
+                .FirstOrDefaultAsync(r => r.Id == reservationId && r.UserId == userId);
+
+            if (reservation == null)
+                return NotFound("Reservation not found.");
+
+            if (reservation.Place == null)
+                return BadRequest("This reservation does not have an associated place. Please contact support.");
+
+            using (var pdfStream = new MemoryStream())
+            {
+                var pdf = new PdfDocument();
+                var page = pdf.AddPage();
+                var gfx = XGraphics.FromPdfPage(page);
+
+                gfx.DrawString("Place Reservation", new XFont("Arial", 20, XFontStyle.Bold), XBrushes.Black, new XPoint(40, 40));
+                gfx.DrawString($"Place: {reservation.Place.Location}", new XFont("Arial", 14), XBrushes.Black, new XPoint(40, 80));
+                gfx.DrawString($"Date: {reservation.ReservedDateTime:yyyy-MM-dd}", new XFont("Arial", 14), XBrushes.Black, new XPoint(40, 110));
+                gfx.DrawString($"Status: {reservation.Status}", new XFont("Arial", 14), XBrushes.Black, new XPoint(40, 140));
+                gfx.DrawString($"Reservation ID: {reservation.Id}", new XFont("Arial", 14), XBrushes.Black, new XPoint(40, 170));
+
+                pdf.Save(pdfStream, false);
+                pdfStream.Position = 0;
+                return File(pdfStream.ToArray(), "application/pdf", $"reservation_{reservation.Id}.pdf");
+            }
+        }
+
+
+        // BuyTicketDto for reference
+        public class BuyTicketDto
+        {
+            public int TicketTypeId { get; set; }
+            public int Quantity { get; set; }
+        }
     }
 }
